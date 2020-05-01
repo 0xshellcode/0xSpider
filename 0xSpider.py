@@ -6,6 +6,7 @@ import sys
 import re
 
 
+
 def banner():
     print ("""
 \033[0,32m   ___        ____        _     _
@@ -17,107 +18,90 @@ def banner():
 """)
 
 
-def spiderBFS(url):
 
-    linkSaved.append(url) # Saved visited urls
+# BFS Algorithm
 
+def spiderBFS(actualURL, depthLevel, numberOfLinks):
+
+    visitedURLS = []
+    #queue = deque(['url': seed, 'depth': 1])
+    queue = [{'url': actualURL, 'depth': 1}]
+    print("Crawling Urls with BFS Algorithm")
+
+    while(len(queue) != 0 and len(visitedURLS) < numberOfLinks):
+        node = queue.pop(0)
+        if node['url'] not in (obj['url'] for obj in visitedURLS):
+            visitedURLS.append(node)
+            if(node['depth'] < depthLevel):
+                urls = findURL(node)
+                if len(urls) != 0:
+                    queue = queue + urls
+    for j in visitedURLS:
+        print(f"\033[91m Url Crawled: {actualURL}{j}")
+
+
+def spiderDFS(actualURL, depthLevel, numberOfLinks):
+
+    visitedURLS = []
+    stack = [{'url': actualURL, 'depth': 1}]
+    print("Crawling Urls with DFS Algorithm")
+
+    while(len(stack) != 0 and len(visitedURLS) < numberOfLinks):
+        node = stack.pop()
+        if node['url'] not in (obj['url'] for obj in visitedURLS):
+            visitedURLS.append(node)
+            if(node['depth'] < depthLevel):
+                urls = findURL(node)
+                if len(urls) != 0:
+                    stack = stack + urls
+    for j in visitedURLS:
+        print(f"\033[91m Url Crawled: {actualURL}{j }")
+
+
+
+def findURL(node):
     try:
-        initialRequest = request.Request(url, headers = headers) # Initial request to the web
-        html_page = request.urlopen(initialRequest) # Opening the url
-        soup = BeautifulSoup(html_page, 'html.parser') # Downloading the html body of the web
-        foundURLs = soup.find_all('a', href=True) # Find all urls in the html, this is a class type
+        #time.sleep(1)                                    # be polite and use a delay of at least 1 sec
+        html_page = request.urlopen(node['url']).read()   # get and read the file from webpage
+        soup = BeautifulSoup(html_page, "html.parser")
+        output = []
 
-        for i in foundURLs: #Check foundURLs
-            flag = 0
-            relativeURL = urljoin(url, i["href"]).rstrip('/') #Obtain all URLs from the foundURLs variable
+        # Obtaining urls from raw html page
 
-            #queue.apped(url)
+        for link in soup.findAll('a', href=True):
+            if re.search('#', link['href']):        # ignore url that contains '#' (properly treat URLs with #)
+                continue
+            if re.search(':', link['href']):        # ignore url that contains ':' (avoid administrative link)
+                continue
+            if link['href'].startswith('/Main_Page') :
+                continue
+            output.append({'url': urljoin(node['url'], link["href"]), 'depth': node['depth'] + 1})
 
-            #Check of url is already in the queue
-            for u in queue:
-                if u == relativeURL:
-                    flag = 1
-                    break
-
-            # If url not found in queue
-            if flag == 0:
-                if(linkSaved.count(relativeURL)) == 0: # if linkSaved count how many  relativeURL has saved
-                    queue.append(relativeURL)
-
-        current = queue.popleft() # Takes out the current url
-        spiderBFS(current)
-    except:
-        print("I'm not able to find more urls because I've probably been blocked")
+        return output
+    except IOError as err:
+        print("No network route to the host".format(err))
 
 
-def spiderDFS(url):
+def main():
 
-    linkSaved.append(url) # Saved visited urls
+    #Banner
+    banner()
 
-    try:
-        initialRequest = request.Request(url, headers = headers) # Initial request to the web
-        html_page = request.urlopen(initialRequest) # Opening the url
-        soup = BeautifulSoup(html_page, 'html.parser') # Downloading the html body of the web
-        foundURLs = soup.find_all('a', href=True) # Find all urls in the html, this is a class type
+    options = ["BFS", "DFS"]
 
-        for i in foundURLs: #Check foundURLs
-            flag = 0
-            relativeURL = urljoin(url, i["href"]).rstrip('/') #Obtain all URLs from the foundURLs variable
+    if len(sys.argv) == 1:
+        sys.exit('How to use: python 0xSpider.py https://example.com/ BFS -d 3 -l 50'.format(sys.argv[0]))
 
-            #Check of url is already in the queue
-            for u in stack:
-                if u == relativeURL:
-                    flag = 1
-                    break
+    else:
+        myURL         = sys.argv[1]
+        depthLevel    = int(sys.argv[4])
+        numberOfLinks = int(sys.argv[6])
 
-            # If url not found in queue
-            if flag == 0:
-                if(linkSaved.count(relativeURL)) == 0: # if linkSaved count how many  relativeURL has saved
-                    stack.append(relativeURL)
+        if sys.argv[2] == options[0]:
+            spiderBFS(myURL, depthLevel, numberOfLinks)
 
-        current = stack.pop() # Takes out the current url
-        spiderBFS(current)
-    except:
-        print("I'm not able to find more urls because I've probably been blocked")
+        elif sys.argv[2] == options[1]:
+            spiderDFS(myURL, depthLevel, numberOfLinks)
 
-# Main
-
-#Banner
-banner()
-
-
-#Options
-options = ["BFS","DFS"]
-
-# Agent that'll visit the given url
-headers = {}
-headers['User-Agent'] = "Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:48.0) Gecko/20100101 Firefox/48.0"
-
-
-if len(sys.argv) == 1:
-    print("The arguments are: url algorithm [BFD, DFS]\n")
-    print("Example: python Spider.py https://udlap.mx BFS")
-else:
-    baseUrl = sys.argv[1]
-    url = sys.argv[1]
-    print("Hi, I'm a Spider")
-    print(f"I'm going to scraping this url: {url}\n")
-
-    #Array of visited links, this remains empty at the initial
-    linkSaved = []
-
-    if sys.argv[2] == options[0]:
-
-        #This queue will be used
-        queue = deque([])
-        spiderBFS(url)
-
-    elif sys.argv[2] == options[1]:
-        
-        #This stack will be used
-        stack = []
-        spiderDFS(url)
-
-    print(f"I was able to find all these links from: {baseUrl}\n")
-    for j in list(set(linkSaved)):
-        print(f"\033[91m Url Crawled: {j}")
+if __name__ == '__main__':
+    main()
